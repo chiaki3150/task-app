@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#4f6ef7">
+  <title>タスク管理</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #4f6ef7;
+      color: white;
+      padding: 16px 20px;
+      padding-top: calc(16px + env(safe-area-inset-top));
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      box-shadow: 0 2px 8px rgba(79,110,247,0.3);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .main {
+      flex: 1;
+      padding: 16px;
+      padding-bottom: calc(100px + env(safe-area-inset-bottom));
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* フィルター */
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .filter-btn {
+      flex: 1;
+      padding: 10px 4px;
+      border: 2px solid #dde1e7;
+      border-radius: 10px;
+      background: white;
+      font-size: 0.88rem;
+      cursor: pointer;
+      color: #666;
+      transition: all 0.15s;
+      font-weight: 500;
+      touch-action: manipulation;
+    }
+
+    .filter-btn.active {
+      border-color: #4f6ef7;
+      color: #4f6ef7;
+      background: #eef1fe;
+      font-weight: 700;
+    }
+
+    /* サマリー */
+    .summary {
+      font-size: 0.82rem;
+      color: #999;
+      margin-bottom: 12px;
+      text-align: right;
+    }
+
+    /* タスクリスト */
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: white;
+      padding: 16px;
+      border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      animation: slideIn 0.18s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* カスタムチェックボックス */
+    .checkbox-wrap {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      position: relative;
+    }
+
+    .checkbox-wrap input[type="checkbox"] {
+      opacity: 0;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      cursor: pointer;
+      z-index: 1;
+    }
+
+    .checkbox-custom {
+      width: 26px;
+      height: 26px;
+      border: 2.5px solid #dde1e7;
+      border-radius: 8px;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      pointer-events: none;
+    }
+
+    .checkbox-wrap input:checked ~ .checkbox-custom {
+      background: #4f6ef7;
+      border-color: #4f6ef7;
+    }
+
+    .checkbox-custom::after {
+      content: '';
+      display: none;
+      width: 6px;
+      height: 11px;
+      border: 2.5px solid white;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
+
+    .checkbox-wrap input:checked ~ .checkbox-custom::after {
+      display: block;
+    }
+
+    .task-text {
+      flex: 1;
+      font-size: 1rem;
+      color: #222;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+
+    .task-item.done .task-text {
+      text-decoration: line-through;
+      color: #bbb;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      touch-action: manipulation;
+      transition: background 0.15s;
+    }
+
+    .delete-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: #ccc;
+      transition: stroke 0.15s;
+    }
+
+    .delete-btn:active svg,
+    .delete-btn:hover svg {
+      stroke: #e05555;
+    }
+
+    .delete-btn:active {
+      background: #ffeaea;
+    }
+
+    .empty {
+      text-align: center;
+      color: #bbb;
+      font-size: 0.95rem;
+      padding: 60px 0;
+    }
+
+    /* 入力エリア（下部固定） */
+    .input-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 16px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      background: white;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .input-bar input {
+      flex: 1;
+      padding: 14px 16px;
+      font-size: 1rem;
+      border: 2px solid #dde1e7;
+      border-radius: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+      background: #f7f8fa;
+    }
+
+    .input-bar input:focus {
+      border-color: #4f6ef7;
+      background: white;
+    }
+
+    .input-bar button {
+      padding: 14px 20px;
+      background: #4f6ef7;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .input-bar button:active {
+      background: #3a58d6;
+      transform: scale(0.96);
+    }
+
+    @media (hover: hover) {
+      .input-bar button:hover {
+        background: #3a58d6;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>タスク管理</header>
+
+  <div class="main">
+    <div class="filters">
+      <button class="filter-btn active" onclick="setFilter('all', this)">すべて</button>
+      <button class="filter-btn" onclick="setFilter('active', this)">未完了</button>
+      <button class="filter-btn" onclick="setFilter('done', this)">完了済み</button>
+    </div>
+
+    <div class="summary" id="summary"></div>
+    <div class="task-list" id="taskList"></div>
+  </div>
+
+  <div class="input-bar">
+    <input type="text" id="taskInput" placeholder="新しいタスクを入力..." maxlength="200" enterkeyhint="done">
+    <button onclick="addTask()">追加</button>
+  </div>
+
+  <script>
+    let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    let currentFilter = 'all';
+
+    function save() {
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function render() {
+      const list = document.getElementById('taskList');
+      const summary = document.getElementById('summary');
+
+      const filtered = tasks.filter(t => {
+        if (currentFilter === 'active') return !t.done;
+        if (currentFilter === 'done')   return t.done;
+        return true;
+      });
+
+      const doneCount = tasks.filter(t => t.done).length;
+      summary.textContent = tasks.length ? `${doneCount} / ${tasks.length} 件完了` : '';
+
+      if (filtered.length === 0) {
+        list.innerHTML = '<div class="empty">タスクがありません</div>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(t => `
+        <div class="task-item ${t.done ? 'done' : ''}">
+          <label class="checkbox-wrap">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask(${t.id})">
+            <span class="checkbox-custom"></span>
+          </label>
+          <span class="task-text">${escapeHtml(t.text)}</span>
+          <button class="delete-btn" onclick="deleteTask(${t.id})" aria-label="削除">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function addTask() {
+      const input = document.getElementById('taskInput');
+      const text = input.value.trim();
+      if (!text) return;
+      tasks.unshift({ id: Date.now(), text, done: false });
+      input.value = '';
+      save();
+      render();
+    }
+
+    function toggleTask(id) {
+      const t = tasks.find(t => t.id === id);
+      if (t) t.done = !t.done;
+      save();
+      render();
+    }
+
+    function deleteTask(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      save();
+      render();
+    }
+
+    function setFilter(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    document.getElementById('taskInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addTask();
+    });
+
+    render();
+  </script>
+</body>
+</html>
